@@ -161,15 +161,12 @@ def Request(features :Features):
 @app.post("/Predict")
 def Predict(id: str):
     engine = create_engine(URLBDD)
-
     with engine.connect() as conn:
         result = conn.execute(
             text('SELECT * FROM "Project6_Features" WHERE id = :id'),
             {"id": id}
         )
         row = result.fetchone()
-        if row is None:
-            return 404, "ID non trouvé"
     df_row = pd.DataFrame([dict(row._mapping)])
     df_row = df_row.drop(columns="id")
     y_test_pred = model_trained.predict_proba(df_row)
