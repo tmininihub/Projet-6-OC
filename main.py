@@ -16,7 +16,6 @@ if os.path.exists("/.dockerenv"):
     load_dotenv("docker.env")
 else:
     load_dotenv("local.env")
-
 URLBDD = os.getenv("URLBDD")
 
 model_trained = joblib.load("model_trained")
