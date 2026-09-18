@@ -53,8 +53,8 @@ def test_flux():
     predict = client.post("/Predict", params={"id" : id})
     assert predict.status_code == 200
     predict = predict.json()
-    credit_accept = predict[0]
-    credit_decline = predict[1]
+    credit_accept = predict[1]
+    credit_decline = predict[2]
     assert credit_accept + credit_decline == 100
 
 test_flux()

@@ -156,7 +156,7 @@ def Request(features :Features):
         index=False
     )
     # print(features["id"])
-    return features["id"], features
+    return features["id"]
 
 @app.post("/Predict")
 def Predict(id: str):
@@ -179,4 +179,4 @@ def Predict(id: str):
     credit_decline = output[1]*100
     # print(f"Crédit Accordé : {output[0]*100:.2f}%, Crédit Refusé : {output[1]*100:.2f}%")
 
-    return credit_accept, credit_decline, f"Crédit Accordé : {credit_accept:.2f}%, Crédit Refusé : {credit_decline:.2f}%"
+    return f"Crédit Accordé : {credit_accept:.2f}%, Crédit Refusé : {credit_decline:.2f}%", credit_accept, credit_decline
