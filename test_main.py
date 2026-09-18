@@ -47,7 +47,7 @@ def test_flux():
     request = client.post("/Request", json=FEATURES_VALIDES)
     assert request.status_code == 200
     request = request.json()
-    id = request[0]
+    id = request
     assert len(id) == 36
 
     predict = client.post("/Predict", params={"id" : id})
