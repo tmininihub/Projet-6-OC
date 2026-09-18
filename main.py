@@ -12,8 +12,11 @@ import sqlalchemy
 from sqlalchemy import create_engine, engine, text
 import uuid
 
+if os.path.exists("/.dockerenv"):
+    load_dotenv("docker.env")
+else:
+    load_dotenv("local.env")
 
-load_dotenv()
 URLBDD = os.getenv("URLBDD")
 
 model_trained = joblib.load("model_trained")
@@ -21,134 +24,128 @@ model_trained = joblib.load("model_trained")
 app = FastAPI()
 
 class Features(BaseModel):
-    # === TRÈS IMPORTANT (top 3) ===
-    ext_source_2: float = Field(
-        ..., description="Score externe normalisé (0 à 1) d'un organisme tiers évaluant la fiabilité du client. Plus proche de 1 = meilleur profil."
-    )
-    ext_source_3: float = Field(
-        ..., description="Second score externe normalisé (0 à 1), similaire à ext_source_2 mais d'une autre source."
-    )
-    days_birth: int = Field(
-        ..., description="Âge du client en nombre de jours, en négatif (ex: -9461 jours ≈ 26 ans). Diviser par -365 pour obtenir l'âge en années."
-    )
- 
-    # === IMPORTANT ===
-    amt_annuity: float = Field(
-        ..., description="Montant de l'annuité (mensualité) du crédit demandé."
-    )
-    amt_payment: float = Field(
-        ..., description="Montant réellement payé lors de la dernière échéance de remboursement."
-    )
-    amt_credit_y: float = Field(
-        ..., description="Montant total du crédit accordé pour la demande actuelle."
-    )
-    cnt_payment: int = Field(
-        ..., description="Nombre d'échéances de paiement prévues pour un crédit précédent."
-    )
-    amt_goods_price: float = Field(
-        ..., description="Prix du bien pour lequel le crédit est demandé (ex: prix de la voiture, du bien immobilier)."
-    )
-    days_entry_payment: int = Field(
-        ..., description="Nombre de jours avant aujourd'hui où le dernier paiement a été effectivement réalisé (négatif)."
-    )
-    days_employed: int = Field(
-        ..., description="Ancienneté professionnelle en nombre de jours, en négatif (ex: -637 jours ≈ 1.7 an dans l'emploi actuel)."
-    )
- 
-    # === MOYENNEMENT IMPORTANT ===
-    amt_credit_sum: float = Field(
-        ..., description="Montant total des crédits en cours déclarés auprès d'autres organismes (bureau de crédit)."
-    )
-    days_instalment: int = Field(
-        ..., description="Nombre de jours avant aujourd'hui où l'échéance de paiement était théoriquement prévue (négatif)."
-    )
-    num_instalment_number: int = Field(
-        ..., description="Numéro de l'échéance dans le plan de remboursement (ex: 5 = 5e mensualité payée)."
-    )
-    amt_instalment: float = Field(
-        ..., description="Montant attendu pour l'échéance de remboursement (avant paiement réel)."
-    )
-    days_credit_enddate: int = Field(
-        ..., description="Nombre de jours restants avant la fin prévue d'un crédit en cours (négatif si déjà censé être terminé)."
-    )
-    days_credit: int = Field(
-        ..., description="Nombre de jours écoulés depuis l'ouverture d'un crédit déclaré au bureau de crédit (négatif)."
-    )
-    amt_credit_sum_debt: float = Field(
-        ..., description="Montant restant dû sur les crédits en cours déclarés au bureau de crédit."
-    )
-    days_decision: int = Field(
-        ..., description="Nombre de jours avant aujourd'hui où la décision sur une demande de crédit précédente a été prise (négatif)."
-    )
-    amt_application: float = Field(
-        ..., description="Montant demandé par le client lors d'une précédente demande de crédit."
-    )
-    days_credit_update: int = Field(
-        ..., description="Nombre de jours depuis la dernière mise à jour des informations d'un crédit au bureau de crédit (négatif)."
-    )
-    days_enddate_fact: int = Field(
-        ..., description="Nombre de jours avant aujourd'hui où un crédit a été effectivement clôturé (négatif)."
-    )
-    amt_credit_x: float = Field(
-        ..., description="Montant du crédit accordé lors d'une précédente demande."
-    )
-    amt_income_total: float = Field(
-        ..., description="Revenu total annuel déclaré par le client."
-    )
-    amt_credit_max_overdue: float = Field(
-        ..., description="Montant maximum jamais resté impayé (en retard) sur un crédit déclaré au bureau de crédit."
-    )
- 
-    # === MOINS IMPORTANT (impact plus faible, mais gardé pour cohérence avec le modèle) ===
-    region_rating_client: int = Field(
-        ..., description="Note de la région de résidence du client (1 = meilleure, 3 = moins bonne)."
-    )
-    cnt_children: int = Field(..., description="Nombre d'enfants à charge.")
-    cnt_fam_members: int = Field(..., description="Nombre total de personnes dans le foyer.")
- 
-    genre: Literal['M', 'F', 'XNA'] = Field(..., description="Genre du client.")
-    possede_voiture: Literal['Y', 'N'] = Field(..., description="Le client possède-t-il une voiture ?")
-    possede_logement: Literal['Y', 'N'] = Field(..., description="Le client est-il propriétaire de son logement ?")
-    type_revenu: Literal[
-        'Working', 'State servant', 'Commercial associate', 'Pensioner',
-        'Unemployed', 'Student', 'Businessman', 'Maternity leave'
-    ] = Field(..., description="Type de source de revenu du client (salarié, fonctionnaire, retraité, etc.).")
-    niveau_education: Literal[
-        'Secondary / secondary special', 'Higher education', 'Incomplete higher',
-        'Lower secondary', 'Academic degree'
-    ] = Field(..., description="Niveau d'études le plus élevé atteint.")
-    statut_marital: Literal[
-        'Single / not married', 'Married', 'Civil marriage', 'Widow',
-        'Separated', 'Unknown'
-    ] = Field(..., description="Statut marital du client.")
-    type_logement: Literal[
-        'House / apartment', 'Rented apartment', 'With parents',
-        'Municipal apartment', 'Office apartment', 'Co-op apartment'
-    ] = Field(..., description="Type de logement occupé.")
-    profession: Literal[
-        'Laborers', 'Core staff', 'Accountants', 'Managers', 'Drivers',
-        'Sales staff', 'Cleaning staff', 'Cooking staff', 'Private service staff',
-        'Medicine staff', 'Security staff', 'High skill tech staff',
-        'Waiters/barmen staff', 'Low-skill Laborers', 'Realty agents',
-        'Secretaries', 'IT staff', 'HR staff'
-    ] = Field(..., description="Catégorie professionnelle du client.")
- 
-    # === PRÉRÉGLAGES (regroupent plusieurs colonnes peu importantes chacune) ===
-    profil_credits_bureau: Literal['Aucun', 'Peu de crédits', 'Profil moyen', 'Fort utilisateur de crédit'] = Field(
-        ..., description="Résume les types de crédits déclarés auprès d'autres organismes (conso, carte, immo...)."
-    )
-    profil_statut_bureau: Literal['Aucun historique', 'Peu de crédits actifs/clôturés', 'Historique moyen', 'Historique chargé'] = Field(
-        ..., description="Résume le nombre de crédits actifs/clôturés au bureau de crédit."
-    )
-    profil_demandes_precedentes: Literal['Aucune demande', 'Peu de demandes, bon profil', 'Demandes mixtes (refus/annulations)', 'Nombreuses demandes'] = Field(
-        ..., description="Résume l'historique des demandes de crédit précédentes (approuvées, refusées, annulées)."
-    )
-    profil_type_contrat_precedent: Literal['Aucun', 'Principalement crédit conso', 'Principalement prêt cash', 'Mixte'] = Field(
-        ..., description="Résume le type de contrats de crédit précédemment souscrits."
-    )
-    profil_motif_decision_precedente: Literal['Aucun', 'Approbations standards (XAP)', 'Historique de refus (HC/LIMIT/SCO)', 'Mixte'] = Field(
-        ..., description="Résume le motif des décisions prises sur les demandes de crédit précédentes."
-    )
+    Active_x: int
+    Bad_debt: int
+    Closed: int
+    Sold: int
+    Another_type_of_loan: int
+    Car_loan: int
+    Cash_loan_non_earmarked: int
+    Consumer_credit: int
+    Credit_card: int
+    Interbank_credit: int
+    Loan_for_business_development: int
+    Loan_for_purchase_of_shares_margin_lending: int
+    Loan_for_the_purchase_of_equipment: int
+    Loan_for_working_capital_replenishment: int
+    Microloan: int
+    Mobile_operator_loan: int
+    Mortgage: int
+    Real_estate_loan: int
+    Unknown_type_of_loan: int
+    DAYS_CREDIT: int
+    CREDIT_DAY_OVERDUE: int
+    DAYS_CREDIT_ENDDATE: int
+    DAYS_ENDDATE_FACT: int
+    AMT_CREDIT_MAX_OVERDUE: int
+    CNT_CREDIT_PROLONG: int
+    AMT_CREDIT_SUM: int
+    AMT_CREDIT_SUM_DEBT: int
+    AMT_CREDIT_SUM_LIMIT: int
+    DAYS_CREDIT_UPDATE: int
+    Approved_x: int
+    Canceled: int
+    Refused_x: int
+    Unused_offer: int
+    Cash_loans: int
+    Consumer_loans: int
+    Revolving_loans: int
+    XNA_x: int
+    CLIENT: int
+    HC: int
+    LIMIT: int
+    SCO: int
+    SCOFR: int
+    SYSTEM: int
+    VERIF: int
+    XAP: int
+    XNA_y: int
+    AMT_CREDIT_x: int
+    AMT_APPLICATION: int
+    DAYS_DECISION: int
+    CNT_PAYMENT: int
+    NUM_INSTALMENT_NUMBER: int
+    DAYS_INSTALMENT: int
+    DAYS_ENTRY_PAYMENT: int
+    AMT_INSTALMENT: int
+    AMT_PAYMENT: int
+    M: int
+    F: int
+    XNA: int
+    N_x: int
+    Y_x: int
+    Y_y: int
+    N_y: int
+    CNT_CHILDREN: int
+    AMT_INCOME_TOTAL: int
+    AMT_CREDIT_y: int
+    AMT_ANNUITY: int
+    AMT_GOODS_PRICE: int
+    Working: int
+    State_servant: int
+    Commercial_associate: int
+    Pensioner: int
+    Unemployed: int
+    Student: int
+    Businessman: int
+    Maternity_leave: int
+    Secondary_secondary_special: int
+    Higher_education: int
+    Incomplete_higher: int
+    Lower_secondary: int
+    Academic_degree: int
+    Single_not_married: int
+    Married: int
+    Civil_marriage: int
+    Widow: int
+    Separated: int
+    Unknown: int
+    House_apartment: int
+    Rented_apartment: int
+    With_parents: int
+    Municipal_apartment: int
+    Office_apartment: int
+    Co_op_apartment: int
+    DAYS_BIRTH: int
+    DAYS_EMPLOYED: int
+    Laborers: int
+    Core_staff: int
+    Accountants: int
+    Managers: int
+    Drivers: int
+    Sales_staff: int
+    Cleaning_staff: int
+    Cooking_staff: int
+    Private_service_staff: int
+    Medicine_staff: int
+    Security_staff: int
+    High_skill_tech_staff: int
+    Waiters_barmen_staff: int
+    Low_skill_Laborers: int
+    Realty_agents: int
+    Secretaries: int
+    IT_staff: int
+    HR_staff: int
+    CNT_FAM_MEMBERS: int
+    REGION_RATING_CLIENT: int
+    EXT_SOURCE_2: float
+    EXT_SOURCE_3: float
+
+from fastapi.responses import FileResponse
+
+@app.get("/")
+def home():
+    return FileResponse("index.html")
 
 @app.post("/Request")
 def Request(features :Features):
@@ -163,7 +160,7 @@ def Request(features :Features):
         if_exists="append",
         index=False
     )
-
+    print(features["id"])
     return features["id"]
 
 @app.post("/Predict")
@@ -184,3 +181,162 @@ def Predict(id: str):
     print(f"Crédit Accordé : {output[0]*100:.2f}%, Crédit Refusé : {output[1]*100:.2f}%")
 
     return f"Crédit Accordé : {output[0]*100:.2f}%, Crédit Refusé : {output[1]*100:.2f}%"
+
+# features = Features(
+#     Active_x=2, Bad_debt=0, Closed=6, Sold=0,
+#     Another_type_of_loan=0, Car_loan=0, Cash_loan_non_earmarked=0,
+#     Consumer_credit=4, Credit_card=4, Interbank_credit=0,
+#     Loan_for_business_development=0, Loan_for_purchase_of_shares_margin_lending=0,
+#     Loan_for_the_purchase_of_equipment=0, Loan_for_working_capital_replenishment=0,
+#     Microloan=0, Mobile_operator_loan=0, Mortgage=0, Real_estate_loan=0,
+#     Unknown_type_of_loan=0,
+#     DAYS_CREDIT=-874, CREDIT_DAY_OVERDUE=0, DAYS_CREDIT_ENDDATE=-349,
+#     DAYS_ENDDATE_FACT=-697, AMT_CREDIT_MAX_OVERDUE=1681, CNT_CREDIT_PROLONG=0,
+#     AMT_CREDIT_SUM=108131, AMT_CREDIT_SUM_DEBT=49156, AMT_CREDIT_SUM_LIMIT=7997,
+#     DAYS_CREDIT_UPDATE=-499,
+#     Approved_x=1, Canceled=0, Refused_x=0, Unused_offer=0,
+#     Cash_loans=0, Consumer_loans=1, Revolving_loans=0, XNA_x=0,
+#     CLIENT=0, HC=0, LIMIT=0, SCO=0, SCOFR=0, SYSTEM=0, VERIF=0, XAP=1, XNA_y=0,
+#     AMT_CREDIT_x=179055, AMT_APPLICATION=179055, DAYS_DECISION=-606, CNT_PAYMENT=24,
+#     NUM_INSTALMENT_NUMBER=190, DAYS_INSTALMENT=-5605, DAYS_ENTRY_PAYMENT=-315,
+#     AMT_INSTALMENT=11559, AMT_PAYMENT=11559,
+#     M=1, F=0, XNA=0, N_x=1, Y_x=0, Y_y=1, N_y=0,
+#     CNT_CHILDREN=0, AMT_INCOME_TOTAL=202500, AMT_CREDIT_y=406597,
+#     AMT_ANNUITY=24700, AMT_GOODS_PRICE=351000,
+#     Working=1, State_servant=0, Commercial_associate=0, Pensioner=0,
+#     Unemployed=0, Student=0, Businessman=0, Maternity_leave=0,
+#     Secondary_secondary_special=1, Higher_education=0, Incomplete_higher=0,
+#     Lower_secondary=0, Academic_degree=0,
+#     Single_not_married=1, Married=0, Civil_marriage=0, Widow=0, Separated=0, Unknown=0,
+#     House_apartment=1, Rented_apartment=0, With_parents=0, Municipal_apartment=0,
+#     Office_apartment=0, Co_op_apartment=0,
+#     DAYS_BIRTH=-9461, DAYS_EMPLOYED=-637,
+#     Laborers=1, Core_staff=0, Accountants=0, Managers=0, Drivers=0,
+#     Sales_staff=0, Cleaning_staff=0, Cooking_staff=0, Private_service_staff=0,
+#     Medicine_staff=0, Security_staff=0, High_skill_tech_staff=0,
+#     Waiters_barmen_staff=0, Low_skill_Laborers=0, Realty_agents=0,
+#     Secretaries=0, IT_staff=0, HR_staff=0,
+#     CNT_FAM_MEMBERS=1, REGION_RATING_CLIENT=2,
+#     EXT_SOURCE_2=0.2629485927471776, EXT_SOURCE_3=0.1393757800997895,
+# )
+
+# Request(features=features)
+
+{
+  "Active_x": 2,
+  "Bad_debt": 0,
+  "Closed": 6,
+  "Sold": 0,
+  "Another_type_of_loan": 0,
+  "Car_loan": 0,
+  "Cash_loan_non_earmarked": 0,
+  "Consumer_credit": 4,
+  "Credit_card": 4,
+  "Interbank_credit": 0,
+  "Loan_for_business_development": 0,
+  "Loan_for_purchase_of_shares_margin_lending": 0,
+  "Loan_for_the_purchase_of_equipment": 0,
+  "Loan_for_working_capital_replenishment": 0,
+  "Microloan": 0,
+  "Mobile_operator_loan": 0,
+  "Mortgage": 0,
+  "Real_estate_loan": 0,
+  "Unknown_type_of_loan": 0,
+  "DAYS_CREDIT": -874,
+  "CREDIT_DAY_OVERDUE": 0,
+  "DAYS_CREDIT_ENDDATE": -349,
+  "DAYS_ENDDATE_FACT": -697,
+  "AMT_CREDIT_MAX_OVERDUE": 1681,
+  "CNT_CREDIT_PROLONG": 0,
+  "AMT_CREDIT_SUM": 108131,
+  "AMT_CREDIT_SUM_DEBT": 49156,
+  "AMT_CREDIT_SUM_LIMIT": 7997,
+  "DAYS_CREDIT_UPDATE": -499,
+  "Approved_x": 1,
+  "Canceled": 0,
+  "Refused_x": 0,
+  "Unused_offer": 0,
+  "Cash_loans": 0,
+  "Consumer_loans": 1,
+  "Revolving_loans": 0,
+  "XNA_x": 0,
+  "CLIENT": 0,
+  "HC": 0,
+  "LIMIT": 0,
+  "SCO": 0,
+  "SCOFR": 0,
+  "SYSTEM": 0,
+  "VERIF": 0,
+  "XAP": 1,
+  "XNA_y": 0,
+  "AMT_CREDIT_x": 179055,
+  "AMT_APPLICATION": 179055,
+  "DAYS_DECISION": -606,
+  "CNT_PAYMENT": 24,
+  "NUM_INSTALMENT_NUMBER": 190,
+  "DAYS_INSTALMENT": -5605,
+  "DAYS_ENTRY_PAYMENT": -315,
+  "AMT_INSTALMENT": 11559,
+  "AMT_PAYMENT": 11559,
+  "M": 1,
+  "F": 0,
+  "XNA": 0,
+  "N_x": 1,
+  "Y_x": 0,
+  "Y_y": 1,
+  "N_y": 0,
+  "CNT_CHILDREN": 0,
+  "AMT_INCOME_TOTAL": 202500,
+  "AMT_CREDIT_y": 406597,
+  "AMT_ANNUITY": 24700,
+  "AMT_GOODS_PRICE": 351000,
+  "Working": 1,
+  "State_servant": 0,
+  "Commercial_associate": 0,
+  "Pensioner": 0,
+  "Unemployed": 0,
+  "Student": 0,
+  "Businessman": 0,
+  "Maternity_leave": 0,
+  "Secondary_secondary_special": 1,
+  "Higher_education": 0,
+  "Incomplete_higher": 0,
+  "Lower_secondary": 0,
+  "Academic_degree": 0,
+  "Single_not_married": 1,
+  "Married": 0,
+  "Civil_marriage": 0,
+  "Widow": 0,
+  "Separated": 0,
+  "Unknown": 0,
+  "House_apartment": 1,
+  "Rented_apartment": 0,
+  "With_parents": 0,
+  "Municipal_apartment": 0,
+  "Office_apartment": 0,
+  "Co_op_apartment": 0,
+  "DAYS_BIRTH": -9461,
+  "DAYS_EMPLOYED": -637,
+  "Laborers": 1,
+  "Core_staff": 0,
+  "Accountants": 0,
+  "Managers": 0,
+  "Drivers": 0,
+  "Sales_staff": 0,
+  "Cleaning_staff": 0,
+  "Cooking_staff": 0,
+  "Private_service_staff": 0,
+  "Medicine_staff": 0,
+  "Security_staff": 0,
+  "High_skill_tech_staff": 0,
+  "Waiters_barmen_staff": 0,
+  "Low_skill_Laborers": 0,
+  "Realty_agents": 0,
+  "Secretaries": 0,
+  "IT_staff": 0,
+  "HR_staff": 0,
+  "CNT_FAM_MEMBERS": 1,
+  "REGION_RATING_CLIENT": 2,
+  "EXT_SOURCE_2": 0.2629485927471776,
+  "EXT_SOURCE_3": 0.1393757800997895
+}

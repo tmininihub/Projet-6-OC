@@ -1,5 +1,6 @@
-.env
+local.env
 df_total.csv
 mlflow.db
 Projet6_Notebook.ipynb
 __pycache__
+docker.env
