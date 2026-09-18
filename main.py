@@ -159,8 +159,8 @@ def Request(features :Features):
         if_exists="append",
         index=False
     )
-    print(features["id"])
-    return features["id"]
+    # print(features["id"])
+    return features["id"], features
 
 @app.post("/Predict")
 def Predict(id: str):
@@ -172,11 +172,15 @@ def Predict(id: str):
             {"id": id}
         )
         row = result.fetchone()
+        if row is None:
+            return 404, "ID non trouvé"
     df_row = pd.DataFrame([dict(row._mapping)])
     df_row = df_row.drop(columns="id")
     y_test_pred = model_trained.predict_proba(df_row)
     for i in y_test_pred:
         output = i
-    print(f"Crédit Accordé : {output[0]*100:.2f}%, Crédit Refusé : {output[1]*100:.2f}%")
+    credit_accept = output[0]*100
+    credit_decline = output[1]*100
+    # print(f"Crédit Accordé : {output[0]*100:.2f}%, Crédit Refusé : {output[1]*100:.2f}%")
 
-    return f"Crédit Accordé : {output[0]*100:.2f}%, Crédit Refusé : {output[1]*100:.2f}%"
+    return credit_accept, credit_decline, f"Crédit Accordé : {credit_accept:.2f}%, Crédit Refusé : {credit_decline:.2f}%"
