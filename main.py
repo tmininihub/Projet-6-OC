@@ -15,7 +15,6 @@ else:
 URLBDD = os.getenv("URLBDD")
 
 model_trained = joblib.load("model_trained")
-
 app = FastAPI()
 
 class Features(BaseModel):
