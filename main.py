@@ -1,15 +1,11 @@
-import fastapi
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from typing import Literal
-import uvicorn
 import pandas as pd
 import joblib
-import dotenv
 from dotenv import load_dotenv
 import os
-import sqlalchemy
-from sqlalchemy import create_engine, engine, text
+from sqlalchemy import create_engine, text
 import uuid
 
 if os.path.exists("/.dockerenv"):
