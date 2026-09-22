@@ -57,9 +57,6 @@ def test_flux():
     credit_decline = predict[2]
     assert credit_accept + credit_decline == 100
 
-test_flux()
-
-
 
 
 
