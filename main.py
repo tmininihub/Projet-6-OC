@@ -13,7 +13,6 @@ if os.path.exists("/.dockerenv"):
 else:
     load_dotenv("local.env")
 URLBDD = os.getenv("URLBDD")
-
 model_trained = joblib.load("model_trained")
 app = FastAPI()
 
