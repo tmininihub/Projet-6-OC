@@ -1,36 +1,75 @@
-name: CI-CD
+name: Docker Image CI
 
 on:
   push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
+
   test:
-    runs-on: self-hosted
-    env:
-      URLBDD: ${{ secrets.URLBDD }}
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
+    - uses: actions/checkout@v4
       - uses: actions/checkout@v4
 
-      - name: Installer les dépendances
-        run: python -m pip install -r requirements.txt
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Lancer les tests
-        run: python -m pytest
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-  deploy:
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: 100.102.88.0
+
+    - name: Run tests
+      env:
+        URLBDD: postgresql://postgres:postgres@localhost:5432/postgres
+      run: pytest
+      - name: Run tests
+        env:
+          URLBDD: ${{ secrets.URLBDD }}
+        run: pytest
+
+  build-and-deploy:
     needs: test
-    runs-on: self-hosted
-    timeout-minutes: 720
-    concurrency:
-      group: uvicorn
-      cancel-in-progress: true
-    env:
-      URLBDD: ${{ secrets.URLBDD }}
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Installer les dépendances
-        run: python -m pip install -r requirements.txt
-
-      - name: Lancer l'API
-        run: python -m uvicorn main:app --host 127.0.0.1 --port 8000
+    - uses: actions/checkout@v4
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag my-image-name:latest
+    - name: Run the container (simulated deployment)
+      run: |
+        docker run -d -p 8000:8000 --name test-container my-image-name:latest
+        sleep 5
+        docker stop test-container
